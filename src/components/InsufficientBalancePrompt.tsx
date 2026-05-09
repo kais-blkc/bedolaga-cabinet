@@ -14,6 +14,8 @@ interface InsufficientBalancePromptProps {
   className?: string;
   /** Callback to execute before opening top-up modal (e.g., save cart) */
   onBeforeTopUp?: () => Promise<void>;
+  /** If provided, called instead of navigating to /balance/top-up. Receives missing amount in rubles. */
+  onTopUp?: (amountRubles: number) => void;
 }
 
 export default function InsufficientBalancePrompt({
@@ -22,6 +24,7 @@ export default function InsufficientBalancePrompt({
   compact = false,
   className = '',
   onBeforeTopUp,
+  onTopUp,
 }: InsufficientBalancePromptProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -33,6 +36,10 @@ export default function InsufficientBalancePrompt({
   const displayAmount = formatAmount(missingRubles);
 
   const handleTopUpClick = async () => {
+    if (onTopUp) {
+      onTopUp(Math.ceil(missingRubles));
+      return;
+    }
     if (onBeforeTopUp) {
       setIsPreparingTopUp(true);
       try {

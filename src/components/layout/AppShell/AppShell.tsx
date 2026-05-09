@@ -218,6 +218,8 @@ export function AppShell({ children }: AppShellProps) {
   // Only apply fullscreen UI adjustments on mobile Telegram (iOS/Android)
   const isMobileFullscreen = isFullscreen && isMobile;
 
+  const isDashboard = location.pathname === '/';
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
@@ -423,37 +425,45 @@ export function AppShell({ children }: AppShellProps) {
       </header>
 
       {/* Mobile Header */}
-      <AppHeader
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-        onCommandPaletteOpen={() => {}}
-        headerHeight={headerHeight}
-        isFullscreen={isMobileFullscreen}
-        safeAreaInset={safeAreaInset}
-        contentSafeAreaInset={contentSafeAreaInset}
-        telegramPlatform={platform}
-        wheelEnabled={wheelEnabled}
-        referralEnabled={referralEnabled}
-        hasContests={hasContests}
-        hasPolls={hasPolls}
-        giftEnabled={giftEnabled}
-      />
+      {!isDashboard && (
+        <AppHeader
+          mobileMenuOpen={mobileMenuOpen}
+          setMobileMenuOpen={setMobileMenuOpen}
+          onCommandPaletteOpen={() => {}}
+          headerHeight={headerHeight}
+          isFullscreen={isMobileFullscreen}
+          safeAreaInset={safeAreaInset}
+          contentSafeAreaInset={contentSafeAreaInset}
+          telegramPlatform={platform}
+          wheelEnabled={wheelEnabled}
+          referralEnabled={referralEnabled}
+          hasContests={hasContests}
+          hasPolls={hasPolls}
+          giftEnabled={giftEnabled}
+        />
+      )}
 
       {/* Desktop spacer */}
       <div className="hidden h-14 lg:block" />
 
       {/* Mobile spacer */}
-      <div className="lg:hidden" style={{ height: headerHeight }} />
+      {!isDashboard && <div className="lg:hidden" style={{ height: headerHeight }} />}
 
       {/* Main content */}
-      <main className="mx-auto max-w-6xl px-4 py-6 pb-28 lg:px-6 lg:pb-8">{children}</main>
+      <main
+        className={cn('mx-auto max-w-6xl', isDashboard ? 'p-0' : 'px-4 py-6 pb-28 lg:px-6 lg:pb-8')}
+      >
+        {children}
+      </main>
 
       {/* Mobile Bottom Navigation */}
-      <MobileBottomNav
-        isKeyboardOpen={isKeyboardOpen}
-        referralEnabled={referralEnabled}
-        wheelEnabled={wheelEnabled}
-      />
+      {!isDashboard && (
+        <MobileBottomNav
+          isKeyboardOpen={isKeyboardOpen}
+          referralEnabled={referralEnabled}
+          wheelEnabled={wheelEnabled}
+        />
+      )}
     </div>
   );
 }
