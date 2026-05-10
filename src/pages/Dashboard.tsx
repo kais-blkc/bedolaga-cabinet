@@ -1216,6 +1216,77 @@ function NotificationsSheet({ open, onClose }: { open: boolean; onClose: () => v
   );
 }
 
+// ─── Share Sheet ─────────────────────────────────────────────────────────────
+
+function ShareSheet({
+  open,
+  onClose,
+  subscriptionId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  subscriptionId?: number;
+}) {
+  const [copied, setCopied] = useState(false);
+  const haptic = useHaptic();
+
+  const { data: connectionLink, isLoading } = useQuery({
+    queryKey: ['connectionLink', subscriptionId],
+    queryFn: () => subscriptionApi.getConnectionLink(subscriptionId),
+    enabled: open && !!subscriptionId,
+    retry: false,
+    staleTime: 0,
+  });
+
+  const url = connectionLink?.happ_scheme_link || connectionLink?.subscription_url || null;
+
+  const handleCopy = async () => {
+    if (!url) return;
+    await copyToClipboard(url);
+    haptic.impact('light');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent>
+        <SheetHeader>
+          <SheetTitle>Добавить устройство</SheetTitle>
+        </SheetHeader>
+        <div className="mt-4 space-y-4">
+          <p className="text-sm text-dark-400">
+            Скопируйте ссылку и откройте её на другом устройстве чтобы добавить подписку.
+          </p>
+          {isLoading ? (
+            <div className="skeleton h-16 w-full rounded-2xl" />
+          ) : url ? (
+            <>
+              <div className="rounded-2xl border border-dark-700/50 bg-dark-900/80 p-4">
+                <p className="break-all text-sm text-dark-200">{url}</p>
+              </div>
+              <button
+                onClick={handleCopy}
+                className={cn(
+                  'flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold transition-all',
+                  copied
+                    ? 'bg-accent-500/20 text-accent-400'
+                    : 'bg-accent-500 text-dark-950 active:opacity-80',
+                )}
+              >
+                {copied ? <CheckIcon /> : <CopyIcon />}
+                {copied ? 'Скопировано!' : 'Скопировать ссылку'}
+              </button>
+            </>
+          ) : (
+            <p className="py-6 text-center text-sm text-dark-500">Ссылка недоступна</p>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 // ─── Promo Sheet ─────────────────────────────────────────────────────────────
 
 function PromoSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -1371,6 +1442,7 @@ type ActiveSheet =
   | 'info'
   | 'notifications'
   | 'promo'
+  | 'share'
   | 'profile'
   | null;
 
@@ -1604,14 +1676,25 @@ export default function Dashboard() {
           </button>
         )}
 
-        {/* Action button */}
-        <button
-          onClick={() => open('connect')}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent-500 py-2.5 text-sm font-medium text-dark-950 transition-opacity active:opacity-80"
-        >
-          <LinkIcon />
-          Подключить
-        </button>
+        {/* Action buttons */}
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={() => open('connect')}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent-500 py-2.5 text-sm font-medium text-dark-950 transition-opacity active:opacity-80"
+          >
+            <LinkIcon />
+            Подключить
+          </button>
+          {subscription && (
+            <button
+              onClick={() => open('share')}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dark-700/50 bg-dark-900/80 py-2.5 text-sm font-medium text-dark-200 transition-colors active:bg-dark-800/50"
+            >
+              <ShareIcon />
+              Поделиться
+            </button>
+          )}
+        </div>
 
         {/* Main cards */}
         <div className="grid grid-cols-2 gap-3">
@@ -1821,6 +1904,12 @@ export default function Dashboard() {
       <NotificationsSheet open={activeSheet === 'notifications'} onClose={close} />
 
       <PromoSheet open={activeSheet === 'promo'} onClose={close} />
+
+      <ShareSheet
+        open={activeSheet === 'share'}
+        onClose={close}
+        subscriptionId={subscription?.id}
+      />
 
       <Sheet open={activeSheet === 'subscription'} onOpenChange={(o) => !o && close()}>
         <SheetContent>
