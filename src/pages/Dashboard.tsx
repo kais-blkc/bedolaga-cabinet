@@ -1444,6 +1444,7 @@ type ActiveSheet =
   | 'promo'
   | 'share'
   | 'profile'
+  | 'devices'
   | null;
 
 export default function Dashboard() {
@@ -1579,6 +1580,27 @@ export default function Dashboard() {
     return () => clearInterval(timer);
   }, [trafficRefreshCooldown]);
 
+  // Devices
+  const { data: devicesData, isLoading: devicesLoading } = useQuery({
+    queryKey: ['devices', subscription?.id],
+    queryFn: () => subscriptionApi.getDevices(subscription?.id),
+    enabled: activeSheet === 'devices' && !!subscription,
+  });
+
+  const deleteDeviceMutation = useMutation({
+    mutationFn: (hwid: string) => subscriptionApi.deleteDevice(hwid, subscription?.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['devices', subscription?.id] });
+    },
+  });
+
+  const deleteAllDevicesMutation = useMutation({
+    mutationFn: () => subscriptionApi.deleteAllDevices(subscription?.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['devices', subscription?.id] });
+    },
+  });
+
   // Derived values
   const balanceRubles = balanceData?.balance_rubles ?? 0;
   const totalReferrals = referralInfo?.total_referrals ?? 0;
@@ -1687,6 +1709,14 @@ export default function Dashboard() {
           </button>
           {subscription && (
             <button
+              onClick={() => open('devices')}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dark-700/50 bg-dark-900/80 py-2.5 text-sm font-medium text-dark-200 transition-colors active:bg-dark-800/50"
+            >
+              Мои устройства
+            </button>
+          )}
+          {subscription && (
+            <button
               onClick={() => open('share')}
               className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dark-700/50 bg-dark-900/80 py-2.5 text-sm font-medium text-dark-200 transition-colors active:bg-dark-800/50"
             >
@@ -1723,8 +1753,9 @@ export default function Dashboard() {
             <p className="text-sm text-dark-100">
               {subscription ? (
                 <>
-                  Продление
-                  <br />и смена
+                  Продлить
+                  <br />
+                  или сменить
                 </>
               ) : (
                 <>
@@ -1953,6 +1984,12 @@ export default function Dashboard() {
             >
               Продлить подписку
             </button>
+            <button
+              onClick={() => setActiveSheet('devices')}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dark-700/50 bg-dark-800/50 py-3.5 text-sm font-medium text-dark-200 transition-colors active:bg-dark-700/50"
+            >
+              Мои устройства
+            </button>
           </div>
         </SheetContent>
       </Sheet>
@@ -2016,6 +2053,109 @@ export default function Dashboard() {
           queryClient.invalidateQueries({ queryKey: ['subscriptions-list'] });
         }}
       />
+
+      <Sheet open={activeSheet === 'devices'} onOpenChange={(o) => !o && close()}>
+        <SheetContent>
+          <SheetHeader>
+            <div className="flex items-center justify-between">
+              <SheetTitle>Мои устройства</SheetTitle>
+              {devicesData && devicesData.devices.length > 0 && (
+                <button
+                  onClick={() => {
+                    if (confirm('Удалить все устройства?')) {
+                      deleteAllDevicesMutation.mutate();
+                    }
+                  }}
+                  disabled={deleteAllDevicesMutation.isPending}
+                  className="text-[11px] font-medium transition-colors"
+                  style={{ color: '#FF3B5C' }}
+                >
+                  Удалить все
+                </button>
+              )}
+            </div>
+          </SheetHeader>
+          <div className="mt-4">
+            {devicesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-500 border-t-transparent" />
+              </div>
+            ) : devicesData && devicesData.devices.length > 0 ? (
+              <div className="space-y-2">
+                <div className="mb-2 font-mono text-[11px] text-dark-400">
+                  {devicesData.device_limit === 0
+                    ? `${devicesData.total} · ∞`
+                    : `${devicesData.total} / ${devicesData.device_limit}`}
+                </div>
+                {devicesData.devices.map((device) => (
+                  <div
+                    key={device.hwid}
+                    className="flex items-center justify-between rounded-[12px] border border-dark-700/50 bg-dark-900/80 p-3.5"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-dark-800">
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-dark-400"
+                          aria-hidden="true"
+                        >
+                          <path d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+                        </svg>
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-dark-100">
+                          {device.device_model || device.platform}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[11px] text-dark-400">
+                          <span>{device.platform}</span>
+                          <span className="font-mono text-dark-500">
+                            {device.hwid.slice(0, 8).toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (confirm('Удалить устройство?')) {
+                          deleteDeviceMutation.mutate(device.hwid);
+                        }
+                      }}
+                      disabled={deleteDeviceMutation.isPending}
+                      className="p-2 text-dark-500 transition-colors active:text-red-400"
+                      aria-label="Удалить устройство"
+                    >
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center text-[12px] text-dark-500">
+                Нет подключённых устройств
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
